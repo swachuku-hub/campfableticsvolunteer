@@ -215,6 +215,28 @@ button.lookup-btn:disabled{ background: var(--seagrass); cursor:default; }
 
 .empty-note{ font-size:13px; color:#6b6b62; font-style:italic; }
 
+/* ---- Per-task assignment list ---- */
+.task-item{
+  background: var(--sand);
+  border-left: 3px solid var(--spice);
+  border-radius:2px;
+  padding:12px 14px;
+  margin-bottom:10px;
+}
+.task-item:last-child{ margin-bottom:0; }
+.task-item.task-pending{ border-left-color: var(--seagrass); opacity:0.92; }
+.task-header{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+.task-day{ font-size:11px; font-weight:700; color: var(--spice); text-transform:uppercase; letter-spacing:0.03em; }
+.task-status-tag, .task-lead-tag{
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+  padding:2px 8px; border-radius:20px;
+}
+.task-status-tag{ background:#fff; border:1px solid var(--line); color:#6b6b62; }
+.task-lead-tag{ background: var(--neon); color: var(--shadow); }
+.task-role{ font-size:15px; font-weight:700; color: var(--olive); }
+.task-time{ font-size:13px; color:#3a3a35; margin-top:2px; }
+.task-details{ font-size:13px; line-height:1.5; color:#3a3a35; white-space:pre-wrap; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+
 /* ---- Resource links & attachments on the volunteer card ---- */
 .resource-link{
   display:flex;
@@ -317,7 +339,6 @@ button.lookup-btn:disabled{ background: var(--seagrass); cursor:default; }
 
 <div class="hero">
   <img class="compass" src="assets/compass.png" alt="">
-  
   <div class="hero-inner">
     <img class="lockup" src="assets/lockup.png" alt="Camp Fabletics">
     <p class="eyebrow">Find True North · 2026 Retail Leadership Summit</p>
@@ -408,11 +429,10 @@ function render(record) {
   const statusClass = STATUS_CLASS[status] || 'status-new';
 
   // Summit Volunteer Assignments is the source of truth for what someone is
-  // actually doing — Assignment Role / Assignment Day come from the linked
-  // assignment record (see lookup.js), not from the old flat HQ Volunteers fields.
-  const assignmentRoles = f['Assignment Role'] || [];
-  const assignmentDays = f['Assignment Day'] || [];
-  const hasConfirmedAssignment = assignmentRoles.length > 0 || !!f['Confirmed Shift Time'];
+  // actually doing. One volunteer can have many task rows (e.g. a full week
+  // of shifts), so Tasks is an array — see lookup.js for how it's built.
+  const tasks = Array.isArray(f['Tasks']) ? f['Tasks'] : [];
+  const hasConfirmedAssignment = tasks.length > 0;
 
   let html = `
     <div class="card">
@@ -424,50 +444,56 @@ function render(record) {
   `;
 
   if (hasConfirmedAssignment) {
-    const roleLabel = assignmentRoles.length ? assignmentRoles.join(', ') : 'Assignment pending final confirmation';
-    const dayLabel = assignmentDays.length ? assignmentDays.join(', ') : '';
-    html += `
-      <div class="assignment-box">
-        <div class="label">Confirmed Assignment</div>
-        <div class="value">${escapeHtml(roleLabel)}</div>
-        ${dayLabel ? `<div style="margin-top:4px; font-size:11px; font-weight:700; color:var(--spice); text-transform:uppercase; letter-spacing:0.03em;">${escapeHtml(dayLabel)}</div>` : ''}
-        ${f['Confirmed Shift Time'] ? `<div class="value" style="margin-top:6px; font-size:13px; font-weight:400; color:#3a3a35;">${escapeHtml(f['Confirmed Shift Time'])}</div>` : ''}
-        ${f['Assignment Details'] ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:13px; line-height:1.6; color:#3a3a35; white-space:pre-wrap;">${escapeHtml(f['Assignment Details'])}</div>` : ''}
-      </div>`;
+    html += `<div class="assignment-box"><div class="label" style="margin-bottom:10px;">Your Assignments</div>`;
+    tasks.forEach(task => {
+      const dayLabel = (task.days || []).join(', ');
+      const isPending = (task.status || '').toLowerCase() === 'pending';
+      const shiftTimes = task.shiftTimes || [];
+      html += `
+        <div class="task-item ${isPending ? 'task-pending' : ''}">
+          <div class="task-header">
+            ${dayLabel ? `<span class="task-day">${escapeHtml(dayLabel)}</span>` : ''}
+            ${task.status ? `<span class="task-status-tag">${escapeHtml(task.status)}</span>` : ''}
+            ${task.shiftLead ? `<span class="task-lead-tag">Shift Lead</span>` : ''}
+          </div>
+          <div class="task-role">${escapeHtml(task.role)}</div>
+          ${shiftTimes.map(st => `<div class="task-time">${shiftTimes.length > 1 ? escapeHtml(st.day) + ': ' : ''}${escapeHtml(st.range)}</div>`).join('')}
+          ${task.details ? `<div class="task-details">${escapeHtml(task.details)}</div>` : ''}
+        </div>`;
+    });
+    html += `</div>`;
   } else {
     html += `<p class="empty-note" style="margin-top:14px;">No confirmed assignment yet — the Summit team will follow up before October.</p>`;
   }
 
   html += `</div>`;
 
-  const links = [f['Resources'], f['Resources 2']].filter(Boolean);
-  const attachmentGroups = [f['Resources 3'], f['Resources 4']].filter(a => Array.isArray(a) && a.length);
+  const links = Array.isArray(f['Resources']) ? f['Resources'].filter(Boolean) : [];
+  const attachments = Array.isArray(f['Resources 3']) ? f['Resources 3'] : [];
 
-  if (links.length || attachmentGroups.length) {
+  if (links.length || attachments.length) {
     html += `<div class="card"><h2>Resources For Your Assignment</h2>`;
     links.forEach((url, i) => {
       html += `
         <a class="resource-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">
           <span class="r-icon">🔗</span>
-          <span>${i === 0 ? 'Assignment Link' : 'Additional Link'}</span>
+          <span>${links.length > 1 ? `Link ${i + 1}` : 'Assignment Link'}</span>
           <span class="r-arrow">↗</span>
         </a>`;
     });
-    attachmentGroups.forEach(group => {
-      group.forEach(att => {
-        const isImage = (att.type || '').startsWith('image/');
-        const thumbUrl = att.thumbnails && att.thumbnails.large ? att.thumbnails.large.url : att.url;
-        html += `
-          <a class="attachment-card" href="${escapeHtml(att.url)}" target="_blank" rel="noopener">
-            ${isImage
-              ? `<img src="${escapeHtml(thumbUrl)}" alt="">`
-              : `<span class="a-icon">📄</span>`}
-            <span>
-              <div class="a-name">${escapeHtml(att.filename || 'Attachment')}</div>
-              <div class="a-open">Open</div>
-            </span>
-          </a>`;
-      });
+    attachments.forEach(att => {
+      const isImage = (att.type || '').startsWith('image/');
+      const thumbUrl = att.thumbnails && att.thumbnails.large ? att.thumbnails.large.url : att.url;
+      html += `
+        <a class="attachment-card" href="${escapeHtml(att.url)}" target="_blank" rel="noopener">
+          ${isImage
+            ? `<img src="${escapeHtml(thumbUrl)}" alt="">`
+            : `<span class="a-icon">📄</span>`}
+          <span>
+            <div class="a-name">${escapeHtml(att.filename || 'Attachment')}</div>
+            <div class="a-open">Open</div>
+          </span>
+        </a>`;
     });
     html += `</div>`;
   }
@@ -494,3 +520,47 @@ function render(record) {
   resultArea.innerHTML = html;
   resultArea.classList.add('show');
 }
+
+async function handleLookup() {
+  const email = emailInput.value.trim();
+  msgArea.textContent = '';
+  msgArea.className = 'msg';
+  resultArea.classList.remove('show');
+  resultArea.innerHTML = '';
+
+  if (!email) {
+    msgArea.textContent = 'Enter your work email to look up your status.';
+    msgArea.className = 'msg error';
+    return;
+  }
+
+  lookupBtn.disabled = true;
+  lookupBtn.textContent = 'Looking up...';
+  msgArea.textContent = 'Searching...';
+  msgArea.className = 'msg loading';
+
+  try {
+    const records = await lookupVolunteer(email);
+    if (records.length === 0) {
+      msgArea.textContent = "We couldn't find a submission with that email. Double check for typos, or reach out to the Summit team.";
+      msgArea.className = 'msg error';
+    } else {
+      msgArea.textContent = '';
+      render(records[0]);
+    }
+  } catch (err) {
+    console.error(err);
+    msgArea.textContent = 'Something went wrong looking that up. Please try again in a moment.';
+    msgArea.className = 'msg error';
+  } finally {
+    lookupBtn.disabled = false;
+    lookupBtn.textContent = 'Look Up';
+  }
+}
+
+lookupBtn.addEventListener('click', handleLookup);
+emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLookup(); });
+</script>
+
+</body>
+</html>

@@ -2,12 +2,48 @@
 // Reads the Airtable token from an environment variable set in
 // Site configuration -> Environment variables (never commit a real token to git).
 //
-// As of Oct 2026, Summit Volunteer Assignments is the source of truth for what
-// a volunteer is actually doing (day, role, shift time, details, resources).
-// HQ Volunteers still owns identity, Response Status, and the raw availability
-// form answers. This function looks up the HQ Volunteers record by email, then
-// follows its "Summit Volunteer Assignments" link to pull the real assignment,
-// and merges the two into one payload for the front end.
+// Summit Volunteer Assignments is the source of truth for what a volunteer is
+// actually doing. As of Oct 2026 this is one row PER TASK, not one row per
+// person — a volunteer can have many linked assignment records (e.g. 8+ for
+// someone staffing several days). This function looks up the HQ Volunteers
+// record by email, follows every linked assignment record, and returns them
+// as a sorted list of tasks for the front end to render individually.
+
+function formatClockTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(date);
+}
+
+// Each weekday has its own Start/End datetime field pair on the Assignments
+// table. Show every one that's actually filled in — not just the first
+// match — since completeness matters more than brevity here.
+const DAY_TIME_FIELDS = [
+  ['Sunday', 'Sunday Shift Time', 'Sunday Shift End'],
+  ['Monday, October 5', 'Monday Shift Time', 'Monday Shift End'],
+  ['Tuesday, October 6', 'Tuesday Shift Time', 'Tuesday Shift End'],
+  ['Wednesday, October 7', 'Wednesday Shift Time', 'Wednesday Shift End'],
+  ['Thursday, October 8', 'Thursday Shift Time', 'Thursday Shift End'],
+  ['Friday', 'Friday Shift Time', 'Friday Shift End']
+];
+const DAY_ORDER = DAY_TIME_FIELDS.map(d => d[0]);
+
+function buildShiftTimes(af) {
+  const entries = [];
+  for (const [dayLabel, startKey, endKey] of DAY_TIME_FIELDS) {
+    const start = formatClockTime(af[startKey]);
+    const end = formatClockTime(af[endKey]);
+    if (start || end) {
+      entries.push({ day: dayLabel, range: [start, end].filter(Boolean).join(' – ') });
+    }
+  }
+  return entries;
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') {
@@ -32,7 +68,6 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'Server not configured' }) };
   }
 
-  // Escape double quotes so a stray " in the input can't break out of the formula string
   const safeEmail = email.replace(/"/g, '\\"');
   const formula = encodeURIComponent(`LOWER({Work Email}) = "${safeEmail}"`);
   const volunteerUrl = `https://api.airtable.com/v0/${BASE_ID}/${VOLUNTEER_TABLE_ID}?filterByFormula=${formula}`;
@@ -49,21 +84,11 @@ exports.handler = async (event) => {
     const data = await res.json();
     const records = data.records || [];
 
-    // Join in EVERY linked Summit Volunteer Assignments record — a volunteer
-    // can be assigned to more than one, and dropping anything past the first
-    // would silently hide real assignments from them.
     for (const record of records) {
       const linkedIds = record.fields['Summit Volunteer Assignments'] || [];
-
-      let allDays = [];
-      let allRoles = [];
-      let allStatuses = [];
-      let allShiftTimes = [];
-      let allDetails = [];
-      let firstResource = '';
-      let secondResource = '';
-      let allAttachments3 = [];
-      let allAttachments4 = [];
+      const tasks = [];
+      let allLinks = [];
+      let allAttachments = [];
 
       for (const assignmentId of linkedIds) {
         try {
@@ -77,36 +102,44 @@ exports.handler = async (event) => {
           }
           const aData = await aRes.json();
           const af = aData.fields || {};
+          const days = af['Assignment Day'] || [];
+          const dayIndexes = days.map(d => DAY_ORDER.indexOf(d)).filter(i => i >= 0);
 
-          if (af['Assignment Day']) allDays.push(...af['Assignment Day']);
-          if (af['Assignment Role']) allRoles.push(...af['Assignment Role']);
-          if (af['Assignment Status']) allStatuses.push(af['Assignment Status']);
-          if (af['Confirmed Shift Time']) allShiftTimes.push(af['Confirmed Shift Time']);
-          if (af['Assignment Details']) allDetails.push(af['Assignment Details']);
-          if (af['Resources'] && !firstResource) firstResource = af['Resources'];
-          else if (af['Resources'] && !secondResource) secondResource = af['Resources'];
-          if (af['Resources 2'] && !firstResource) firstResource = af['Resources 2'];
-          else if (af['Resources 2'] && !secondResource) secondResource = af['Resources 2'];
-          if (Array.isArray(af['Resources 3'])) allAttachments3.push(...af['Resources 3']);
-          if (Array.isArray(af['Resources 4'])) allAttachments4.push(...af['Resources 4']);
+          tasks.push({
+            days,
+            role: (af['Assignment Role'] || []).join(', ') || 'Assignment pending final confirmation',
+            status: af['Assignment Status'] || '',
+            shiftLead: !!af['Shift Lead'],
+            shiftTimes: buildShiftTimes(af),
+            details: af['Assignment Details'] || '',
+            sortKey: dayIndexes.length ? Math.min(...dayIndexes) : 99
+          });
+
+          if (af['Resources']) allLinks.push(af['Resources']);
+          if (af['Resources 2']) allLinks.push(af['Resources 2']);
+          if (Array.isArray(af['Resources 3'])) allAttachments.push(...af['Resources 3']);
+          if (Array.isArray(af['Resources 4'])) allAttachments.push(...af['Resources 4']);
         } catch (err) {
           console.error('Assignment fetch error', err);
         }
       }
 
-      // Summit Volunteer Assignments is now the single source of truth for these
-      // fields. Always overwrite them here (even to blank) so a missing or
-      // not-yet-filled-in assignment record never lets stale HQ Volunteers data
-      // leak through onto the status page.
-      record.fields['Assignment Day'] = allDays;
-      record.fields['Assignment Role'] = allRoles;
-      record.fields['Assignment Status'] = allStatuses.join(', ');
-      record.fields['Confirmed Shift Time'] = allShiftTimes.join('  •  ');
-      record.fields['Assignment Details'] = allDetails.join('\n\n');
-      record.fields['Resources'] = firstResource;
-      record.fields['Resources 2'] = secondResource;
-      record.fields['Resources 3'] = allAttachments3;
-      record.fields['Resources 4'] = allAttachments4;
+      tasks.sort((a, b) => a.sortKey - b.sortKey);
+
+      const dedupedLinks = [...new Set(allLinks)];
+      const seenAttachmentIds = new Set();
+      const dedupedAttachments = allAttachments.filter(att => {
+        if (!att || !att.id) return true;
+        if (seenAttachmentIds.has(att.id)) return false;
+        seenAttachmentIds.add(att.id);
+        return true;
+      });
+
+      record.fields['Tasks'] = tasks;
+      record.fields['Resources'] = dedupedLinks;
+      record.fields['Resources 2'] = [];
+      record.fields['Resources 3'] = dedupedAttachments;
+      record.fields['Resources 4'] = [];
     }
 
     return {
