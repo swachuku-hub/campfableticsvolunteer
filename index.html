@@ -407,6 +407,13 @@ function render(record) {
   const status = f['Response Status'] || 'New';
   const statusClass = STATUS_CLASS[status] || 'status-new';
 
+  // Summit Volunteer Assignments is the source of truth for what someone is
+  // actually doing — Assignment Role / Assignment Day come from the linked
+  // assignment record (see lookup.js), not from the old flat HQ Volunteers fields.
+  const assignmentRoles = f['Assignment Role'] || [];
+  const assignmentDays = f['Assignment Day'] || [];
+  const hasConfirmedAssignment = assignmentRoles.length > 0 || !!f['Confirmed Shift Time'];
+
   let html = `
     <div class="card">
       <div class="name-row">
@@ -415,10 +422,6 @@ function render(record) {
       </div>
       <div class="subline">${escapeHtml(f['Department / Team'] || '')}${f['Job Title'] ? ' · ' + escapeHtml(f['Job Title']) : ''}</div>
   `;
-
-  const assignmentRoles = f['Assignment Role'] || [];
-  const assignmentDays = f['Assignment Day'] || [];
-  const hasConfirmedAssignment = assignmentRoles.length > 0 || !!f['Confirmed Shift Time'];
 
   if (hasConfirmedAssignment) {
     const roleLabel = assignmentRoles.length ? assignmentRoles.join(', ') : 'Assignment pending final confirmation';
@@ -469,7 +472,7 @@ function render(record) {
     html += `</div>`;
   }
 
-   if (!hasConfirmedAssignment) {
+  if (!hasConfirmedAssignment) {
     html += `<div class="card"><h2>Your Availability</h2>`;
     html += dayBlock('Monday, October 5 — Arrival Day', f['Oct 5 Support Opportunities'], f['Oct 5 Availability Window']);
     html += dayBlock('Tuesday, October 6 — Brand and Business Updates', f['Oct 6 Support Opportunities'], f['Oct 6 Availability Window']);
@@ -491,47 +494,3 @@ function render(record) {
   resultArea.innerHTML = html;
   resultArea.classList.add('show');
 }
-
-async function handleLookup() {
-  const email = emailInput.value.trim();
-  msgArea.textContent = '';
-  msgArea.className = 'msg';
-  resultArea.classList.remove('show');
-  resultArea.innerHTML = '';
-
-  if (!email) {
-    msgArea.textContent = 'Enter your work email to look up your status.';
-    msgArea.className = 'msg error';
-    return;
-  }
-
-  lookupBtn.disabled = true;
-  lookupBtn.textContent = 'Looking up...';
-  msgArea.textContent = 'Searching...';
-  msgArea.className = 'msg loading';
-
-  try {
-    const records = await lookupVolunteer(email);
-    if (records.length === 0) {
-      msgArea.textContent = "We couldn't find a submission with that email. Double check for typos, or reach out to the Summit team.";
-      msgArea.className = 'msg error';
-    } else {
-      msgArea.textContent = '';
-      render(records[0]);
-    }
-  } catch (err) {
-    console.error(err);
-    msgArea.textContent = 'Something went wrong looking that up. Please try again in a moment.';
-    msgArea.className = 'msg error';
-  } finally {
-    lookupBtn.disabled = false;
-    lookupBtn.textContent = 'Look Up';
-  }
-}
-
-lookupBtn.addEventListener('click', handleLookup);
-emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLookup(); });
-</script>
-
-</body>
-</html>
