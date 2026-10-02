@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Volunteer Status — Camp Fabletics 2026</title>
+
+<!-- Adobe Fonts kit: bzo8wcb (LTC Octic Gothic, weight 400 only) -->
+<link rel="stylesheet" href="https://use.typekit.net/bzo8wcb.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;600;700&family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  /* Camp Fabletics 2026 — locked brand system */
+  --olive:   #424226; /* Dark Olive */
+  --spice:   #71242E; /* Spice */
+  --seagrass:#9C9A89; /* Seagrass */
+  --neon:    #E6E65E; /* Neon */
+  --sand:    #E8E4DA; /* Sand */
+  --shadow:  #1B1C19; /* Shadow */
+  --line: rgba(66,66,38,0.18);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background: var(--sand);
+  font-family:'Barlow Semi Condensed','Helvetica Neue',Arial,sans-serif;
+  color: var(--shadow);
+  min-height:100vh;
+}
+.display{
+  font-family:'ltc-octic-gothic','Oswald','Barlow Semi Condensed',Arial,sans-serif;
+  font-weight:400;
+  letter-spacing:0.02em;
+}
+
+.hero{
+  position:relative;
+  background-color: var(--olive);
+  background-image:
+    linear-gradient(180deg, rgba(27,28,25,0.55), rgba(27,28,25,0.78)),
+    url('assets/topo-olive.jpg');
+  background-size: cover;
+  background-position: center;
+  color: var(--sand);
+  padding: 44px 20px 40px;
+  overflow:hidden;
+}
+.hero-inner{max-width:640px; margin:0 auto; position:relative; z-index:1;}
+.lockup{ height:26px; margin-bottom:22px; display:block; filter: brightness(0) invert(1); }
+.eyebrow{
+  text-transform:uppercase;
+  letter-spacing:0.16em;
+  font-size:11px;
+  color: var(--neon);
+  margin:0 0 10px;
+  font-weight:700;
+}
+h1{
+  font-size:40px;
+  margin:0 0 12px;
+  color:#fff;
+}
+.hero p.sub{
+  font-size:14px;
+  line-height:1.6;
+  color: rgba(232,228,218,0.88);
+  margin:0;
+  max-width:460px;
+}
+.staff-link{
+  position:absolute; top:20px; right:20px;
+  font-size:12px;
+  color: rgba(232,228,218,0.7);
+  text-decoration:none;
+  z-index:2;
+  border-bottom:1px solid rgba(232,228,218,0.35);
+  padding-bottom:2px;
+}
+.staff-link:hover{ color:#fff; border-color:#fff; }
+.compass{
+  position:absolute;
+  right:-30px; bottom:-40px;
+  width:160px; height:160px;
+  opacity:0.14;
+  z-index:0;
+}
+
+.wrap{max-width:640px; margin:0 auto; padding:32px 20px 80px;}
+
+.lookup-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:28px;
+  margin-bottom:24px;
+}
+.lookup-card label{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  color: var(--olive);
+  margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.lookup-row{ display:flex; gap:10px; }
+input[type=email]{
+  flex:1;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:4px;
+  font-size:15px;
+  font-family:'Barlow Semi Condensed',Arial,sans-serif;
+  background: var(--sand);
+  color: var(--shadow);
+}
+input:focus{ outline:2px solid var(--spice); outline-offset:1px; }
+button.lookup-btn{
+  background: var(--spice);
+  color: #fff;
+  border:none;
+  padding:0 24px;
+  border-radius:4px;
+  font-size:13px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  cursor:pointer;
+  font-family:'Barlow Semi Condensed',Arial,sans-serif;
+}
+button.lookup-btn:hover{ background:#5a1c25; }
+button.lookup-btn:disabled{ background: var(--seagrass); cursor:default; }
+
+.msg{ font-size:13px; margin-top:10px; }
+.msg.error{ color: var(--spice); font-weight:600; }
+.msg.loading{ color:#6b6b62; }
+
+.result{ display:none; }
+.result.show{ display:block; }
+
+.status-badge{
+  display:inline-block;
+  padding:5px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+}
+.status-new{ background: var(--sand); color: var(--olive); border:1px solid var(--line); }
+.status-review{ background: var(--neon); color: var(--shadow); }
+.status-ready{ background: var(--seagrass); color:#fff; }
+.status-assigned{ background: var(--spice); color:#fff; }
+.status-waitlist{ background:#f0d9d9; color: var(--spice); }
+.status-unavailable, .status-withdrawn{ background:#e2e2dc; color:#7a7a72; }
+
+.card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:24px 26px;
+  margin-bottom:18px;
+}
+.card h2{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+  color: var(--spice);
+  font-weight:700;
+  margin:0 0 16px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+}
+.name-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:6px;
+}
+.name-row .name{ font-size:28px; }
+.subline{ font-size:13px; color:#6b6b62; margin-bottom:0; }
+
+.assignment-box{
+  background: var(--sand);
+  border-left: 3px solid var(--spice);
+  padding:14px 16px;
+  border-radius:2px;
+  margin-top:14px;
+}
+.assignment-box .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color: var(--spice); font-weight:700; margin-bottom:4px; }
+.assignment-box .value{ font-size:15px; font-weight:600; color: var(--olive); }
+
+.day-block{
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  background: var(--sand);
+}
+.day-block .day-name{ font-size:13px; font-weight:700; color: var(--olive); margin-bottom:6px; }
+.day-block .tasks{ font-size:13px; line-height:1.6; color:#3a3a35; }
+.tag{
+  display:inline-block;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:2px 10px;
+  font-size:12px;
+  margin:2px 4px 2px 0;
+}
+
+.empty-note{ font-size:13px; color:#6b6b62; font-style:italic; }
+
+/* ---- Resource links & attachments on the volunteer card ---- */
+.resource-link{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background: var(--sand);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:11px 14px;
+  margin-bottom:8px;
+  text-decoration:none;
+  color: var(--olive);
+  font-size:14px;
+  font-weight:600;
+}
+.resource-link:hover{ background:#e0dccf; }
+.resource-link .r-icon{ font-size:16px; }
+.resource-link .r-arrow{ margin-left:auto; opacity:0.6; font-size:13px; }
+
+.attachment-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background: var(--sand);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:10px;
+  margin-bottom:8px;
+  text-decoration:none;
+  color: var(--shadow);
+}
+.attachment-card:hover{ background:#e0dccf; }
+.attachment-card img{
+  width:52px; height:52px; object-fit:cover; border-radius:3px;
+  border:1px solid var(--line); flex-shrink:0; background:#fff;
+}
+.attachment-card .a-icon{
+  width:52px; height:52px; border-radius:3px; border:1px solid var(--line);
+  background:#fff; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  font-size:20px; color: var(--spice);
+}
+.attachment-card .a-name{ font-size:13px; font-weight:600; word-break:break-word; }
+.attachment-card .a-open{ font-size:11px; color: var(--spice); text-transform:uppercase; letter-spacing:0.04em; font-weight:700; margin-top:2px; }
+
+/* ---- Help desk / Airtable link cards ---- */
+.help-card{
+  background: var(--olive);
+  background-image: linear-gradient(180deg, rgba(27,28,25,0.35), rgba(27,28,25,0.55)), url('assets/topo-spice.jpg');
+  background-size: cover;
+  background-position: center;
+  border-radius:6px;
+  padding:24px 26px;
+  margin-bottom:18px;
+  color: var(--sand);
+}
+.help-card h2{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+  color: var(--neon);
+  font-weight:700;
+  margin:0 0 6px;
+}
+.help-card > p{
+  font-size:13px;
+  color: rgba(232,228,218,0.85);
+  margin:0 0 16px;
+  line-height:1.5;
+}
+.help-links{ display:flex; flex-direction:column; gap:10px; }
+.help-link{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background: rgba(232,228,218,0.08);
+  border:1px solid rgba(232,228,218,0.25);
+  border-radius:4px;
+  padding:13px 16px;
+  color:#fff;
+  text-decoration:none;
+  font-size:14px;
+  font-weight:600;
+  transition: background 0.15s ease;
+}
+.help-link:hover{ background: rgba(232,228,218,0.18); }
+.help-link .arrow{ opacity:0.7; }
+.help-link .sub{ display:block; font-size:11px; font-weight:400; text-transform:uppercase; letter-spacing:0.05em; color: var(--neon); margin-bottom:2px; }
+
+.footer-note{
+  font-size:12px;
+  color:#8a8a80;
+  text-align:center;
+  margin-top:30px;
+}
+.footer-note a{ color: var(--spice); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img class="compass" src="assets/compass.png" alt="">
+  <a class="staff-link" href="https://fableticssummitstaffing.netlify.app/">Staffing team →</a>
+  <div class="hero-inner">
+    <img class="lockup" src="assets/lockup.png" alt="Camp Fabletics">
+    <p class="eyebrow">Find True North · 2026 Retail Leadership Summit</p>
+    <h1 class="display">My Volunteer Status</h1>
+    <p class="sub">Look up your Summit volunteer submission with your work email to see your current status, and your confirmed assignment once one is set.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="lookup-card">
+    <label for="emailInput">Work Email</label>
+    <div class="lookup-row">
+      <input type="email" id="emailInput" placeholder="you@fabletics.com">
+      <button class="lookup-btn" id="lookupBtn">Look Up</button>
+    </div>
+    <div class="msg" id="msgArea"></div>
+  </div>
+
+  <div class="result" id="resultArea"></div>
+
+  <div class="help-card">
+    <h2>Need Something Else?</h2>
+    <p>Quick links to the Camp Help Desk and Summit tools — no lookup required.</p>
+    <div class="help-links">
+      <a class="help-link" href="https://airtable.com/app0NzUIKpN6hEYJc/pagQuidGecDHxfAsA/form" target="_blank" rel="noopener">
+        <span><span class="sub">Monday · Arrival Dispatch</span>Camp Help Desk</span>
+        <span class="arrow">↗</span>
+      </a>
+      <a class="help-link" href="https://airtable.com/app0NzUIKpN6hEYJc/pagv89LbkkfJzOrOj/form" target="_blank" rel="noopener">
+        <span><span class="sub">Tuesday – Friday</span>Questions &amp; Feedback</span>
+        <span class="arrow">↗</span>
+      </a>
+      <a class="help-link" href="https://airtable.com/app0NzUIKpN6hEYJc/pagah3GrEjPNxjwzx" target="_blank" rel="noopener">
+        <span><span class="sub">All Week</span>Summit Guest Lookup</span>
+        <span class="arrow">↗</span>
+      </a>
+    </div>
+  </div>
+
+  <p class="footer-note">Don't see your submission, or need to change your availability? Reach out to <a href="mailto:swachuku@fabletics.com">swachuku@fabletics.com</a>.</p>
+</div>
+
+<script>
+const emailInput = document.getElementById('emailInput');
+const lookupBtn = document.getElementById('lookupBtn');
+const msgArea = document.getElementById('msgArea');
+const resultArea = document.getElementById('resultArea');
+
+const STATUS_CLASS = {
+  'New': 'status-new',
+  'Under Review': 'status-review',
+  'Ready to Assign': 'status-ready',
+  'Assigned': 'status-assigned',
+  'Waitlist': 'status-waitlist',
+  'Unavailable': 'status-unavailable',
+  'Withdrawn': 'status-withdrawn'
+};
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function lookupVolunteer(email) {
+  // Calls our own serverless function — the Airtable token never reaches the browser.
+  const url = `/.netlify/functions/lookup?email=${encodeURIComponent(email)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Lookup error ${res.status}`);
+  const data = await res.json();
+  return data.records;
+}
+
+function dayBlock(dayLabel, opportunities, window) {
+  if ((!opportunities || opportunities.length === 0) && (!window || window.length === 0)) return '';
+  const tasks = (opportunities || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+  const win = (window || []).join(', ');
+  return `
+    <div class="day-block">
+      <div class="day-name">${escapeHtml(dayLabel)}</div>
+      <div class="tasks">${tasks || '<span class="empty-note">No specific tasks selected</span>'}</div>
+      ${win ? `<div class="subline" style="margin-top:6px;">Availability: ${escapeHtml(win)}</div>` : ''}
+    </div>`;
+}
+
+function render(record) {
+  const f = record.fields;
+  const status = f['Response Status'] || 'New';
+  const statusClass = STATUS_CLASS[status] || 'status-new';
+
+  let html = `
+    <div class="card">
+      <div class="name-row">
+        <div class="name display">${escapeHtml(f['Volunteer Name'] || 'Volunteer')}</div>
+        <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+      </div>
+      <div class="subline">${escapeHtml(f['Department / Team'] || '')}${f['Job Title'] ? ' · ' + escapeHtml(f['Job Title']) : ''}</div>
+  `;
+
+  if (f['Confirmed Assignment'] || f['Confirmed Shift Time']) {
+    html += `
+      <div class="assignment-box">
+        <div class="label">Confirmed Assignment</div>
+        <div class="value">${escapeHtml(f['Confirmed Assignment'] || 'Assignment pending final confirmation')}</div>
+        ${f['Confirmed Shift Time'] ? `<div class="value" style="margin-top:6px; font-size:13px; font-weight:400; color:#3a3a35;">${escapeHtml(f['Confirmed Shift Time'])}</div>` : ''}
+        ${f['Assignment Details'] ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:13px; line-height:1.6; color:#3a3a35; white-space:pre-wrap;">${escapeHtml(f['Assignment Details'])}</div>` : ''}
+      </div>`;
+  } else {
+    html += `<p class="empty-note" style="margin-top:14px;">No confirmed assignment yet — the Summit team will follow up before October.</p>`;
+  }
+
+  html += `</div>`;
+
+  const links = [f['Resources'], f['Resources 2']].filter(Boolean);
+  const attachmentGroups = [f['Resources 3'], f['Resources 4']].filter(a => Array.isArray(a) && a.length);
+
+  if (links.length || attachmentGroups.length) {
+    html += `<div class="card"><h2>Resources For Your Assignment</h2>`;
+    links.forEach((url, i) => {
+      html += `
+        <a class="resource-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+          <span class="r-icon">🔗</span>
+          <span>${i === 0 ? 'Assignment Link' : 'Additional Link'}</span>
+          <span class="r-arrow">↗</span>
+        </a>`;
+    });
+    attachmentGroups.forEach(group => {
+      group.forEach(att => {
+        const isImage = (att.type || '').startsWith('image/');
+        const thumbUrl = att.thumbnails && att.thumbnails.large ? att.thumbnails.large.url : att.url;
+        html += `
+          <a class="attachment-card" href="${escapeHtml(att.url)}" target="_blank" rel="noopener">
+            ${isImage
+              ? `<img src="${escapeHtml(thumbUrl)}" alt="">`
+              : `<span class="a-icon">📄</span>`}
+            <span>
+              <div class="a-name">${escapeHtml(att.filename || 'Attachment')}</div>
+              <div class="a-open">Open</div>
+            </span>
+          </a>`;
+      });
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="card"><h2>Your Availability</h2>`;
+  html += dayBlock('Monday, October 5 — Arrival Day', f['Oct 5 Support Opportunities'], f['Oct 5 Availability Window']);
+  html += dayBlock('Tuesday, October 6 — Brand and Business Updates', f['Oct 6 Support Opportunities'], f['Oct 6 Availability Window']);
+  html += dayBlock('Wednesday, October 7 — Business Acumen', f['Oct 7 Support Opportunities'], f['Oct 7 Availability Window']);
+  html += dayBlock('Thursday, October 8 — Learning and Development and Awards Night', f['Oct 8 Support Opportunities'], f['Oct 8 Availability Window']);
+  html += `</div>`;
+
+  if (f['Breakfast Club Hosting Interest'] === 'Yes' || f['Breakfast Club Hosting Interest'] === 'Maybe, with more information') {
+    html += `
+      <div class="card">
+        <h2>Breakfast Club Hosting</h2>
+        <div class="subline">Interest: ${escapeHtml(f['Breakfast Club Hosting Interest'])}</div>
+        ${f['Breakfast Club Topic'] ? `<div style="margin-top:8px; font-size:14px;"><strong>Topic:</strong> ${escapeHtml(f['Breakfast Club Topic'])}</div>` : ''}
+        ${f['Breakfast Club Audience'] ? `<div style="margin-top:6px; font-size:14px;"><strong>Audience:</strong> ${(f['Breakfast Club Audience']||[]).map(escapeHtml).join(', ')}</div>` : ''}
+      </div>`;
+  }
+
+  resultArea.innerHTML = html;
+  resultArea.classList.add('show');
+}
+
+async function handleLookup() {
+  const email = emailInput.value.trim();
+  msgArea.textContent = '';
+  msgArea.className = 'msg';
+  resultArea.classList.remove('show');
+  resultArea.innerHTML = '';
+
+  if (!email) {
+    msgArea.textContent = 'Enter your work email to look up your status.';
+    msgArea.className = 'msg error';
+    return;
+  }
+
+  lookupBtn.disabled = true;
+  lookupBtn.textContent = 'Looking up...';
+  msgArea.textContent = 'Searching...';
+  msgArea.className = 'msg loading';
+
+  try {
+    const records = await lookupVolunteer(email);
+    if (records.length === 0) {
+      msgArea.textContent = "We couldn't find a submission with that email. Double check for typos, or reach out to the Summit team.";
+      msgArea.className = 'msg error';
+    } else {
+      msgArea.textContent = '';
+      render(records[0]);
+    }
+  } catch (err) {
+    console.error(err);
+    msgArea.textContent = 'Something went wrong looking that up. Please try again in a moment.';
+    msgArea.className = 'msg error';
+  } finally {
+    lookupBtn.disabled = false;
+    lookupBtn.textContent = 'Look Up';
+  }
+}
+
+lookupBtn.addEventListener('click', handleLookup);
+emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLookup(); });
+</script>
+
+</body>
+</html>
