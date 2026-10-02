@@ -49,42 +49,64 @@ exports.handler = async (event) => {
     const data = await res.json();
     const records = data.records || [];
 
-    // Join in the linked Summit Volunteer Assignments record, if one exists.
+    // Join in EVERY linked Summit Volunteer Assignments record — a volunteer
+    // can be assigned to more than one, and dropping anything past the first
+    // would silently hide real assignments from them.
     for (const record of records) {
-      const linkedIds = record.fields['Summit Volunteer Assignments'];
-      let assignmentFields = {};
+      const linkedIds = record.fields['Summit Volunteer Assignments'] || [];
 
-      if (Array.isArray(linkedIds) && linkedIds.length > 0) {
-        const assignmentId = linkedIds[0]; // one assignment record per volunteer, by design
+      let allDays = [];
+      let allRoles = [];
+      let allStatuses = [];
+      let allShiftTimes = [];
+      let allDetails = [];
+      let firstResource = '';
+      let secondResource = '';
+      let allAttachments3 = [];
+      let allAttachments4 = [];
+
+      for (const assignmentId of linkedIds) {
         try {
           const aRes = await fetch(
             `https://api.airtable.com/v0/${BASE_ID}/${ASSIGNMENTS_TABLE_ID}/${assignmentId}`,
             { headers: { Authorization: `Bearer ${TOKEN}` } }
           );
-          if (aRes.ok) {
-            const aData = await aRes.json();
-            assignmentFields = aData.fields || {};
-          } else {
+          if (!aRes.ok) {
             console.error('Assignment fetch failed', aRes.status, await aRes.text());
+            continue;
           }
+          const aData = await aRes.json();
+          const af = aData.fields || {};
+
+          if (af['Assignment Day']) allDays.push(...af['Assignment Day']);
+          if (af['Assignment Role']) allRoles.push(...af['Assignment Role']);
+          if (af['Assignment Status']) allStatuses.push(af['Assignment Status']);
+          if (af['Confirmed Shift Time']) allShiftTimes.push(af['Confirmed Shift Time']);
+          if (af['Assignment Details']) allDetails.push(af['Assignment Details']);
+          if (af['Resources'] && !firstResource) firstResource = af['Resources'];
+          else if (af['Resources'] && !secondResource) secondResource = af['Resources'];
+          if (af['Resources 2'] && !firstResource) firstResource = af['Resources 2'];
+          else if (af['Resources 2'] && !secondResource) secondResource = af['Resources 2'];
+          if (Array.isArray(af['Resources 3'])) allAttachments3.push(...af['Resources 3']);
+          if (Array.isArray(af['Resources 4'])) allAttachments4.push(...af['Resources 4']);
         } catch (err) {
           console.error('Assignment fetch error', err);
         }
       }
 
       // Summit Volunteer Assignments is now the single source of truth for these
-      // six fields. Always overwrite them here (even to blank) so a missing or
+      // fields. Always overwrite them here (even to blank) so a missing or
       // not-yet-filled-in assignment record never lets stale HQ Volunteers data
       // leak through onto the status page.
-      record.fields['Assignment Day'] = assignmentFields['Assignment Day'] || [];
-      record.fields['Assignment Role'] = assignmentFields['Assignment Role'] || [];
-      record.fields['Assignment Status'] = assignmentFields['Assignment Status'] || '';
-      record.fields['Confirmed Shift Time'] = assignmentFields['Confirmed Shift Time'] || '';
-      record.fields['Assignment Details'] = assignmentFields['Assignment Details'] || '';
-      record.fields['Resources'] = assignmentFields['Resources'] || '';
-      record.fields['Resources 2'] = assignmentFields['Resources 2'] || '';
-      record.fields['Resources 3'] = assignmentFields['Resources 3'] || [];
-      record.fields['Resources 4'] = assignmentFields['Resources 4'] || [];
+      record.fields['Assignment Day'] = allDays;
+      record.fields['Assignment Role'] = allRoles;
+      record.fields['Assignment Status'] = allStatuses.join(', ');
+      record.fields['Confirmed Shift Time'] = allShiftTimes.join('  •  ');
+      record.fields['Assignment Details'] = allDetails.join('\n\n');
+      record.fields['Resources'] = firstResource;
+      record.fields['Resources 2'] = secondResource;
+      record.fields['Resources 3'] = allAttachments3;
+      record.fields['Resources 4'] = allAttachments4;
     }
 
     return {
