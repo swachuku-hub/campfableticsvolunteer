@@ -1,4 +1,4 @@
-  // Server-side only. Runs on Netlify's infrastructure, never shipped to the browser.
+// Server-side only. Runs on Netlify's infrastructure, never shipped to the browser.
 // Reads the Airtable token from an environment variable set in
 // Site configuration -> Environment variables (never commit a real token to git).
 //
